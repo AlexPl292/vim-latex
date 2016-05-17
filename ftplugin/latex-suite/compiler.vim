@@ -214,6 +214,31 @@ function! Tex_RunLaTeX()
 endfunction
 
 " }}}
+" Run a shell command in background "{{{
+function! s:RunInBackground(cmd)
+
+python << EEOOFF
+
+try:
+    subprocess.Popen(
+            vim.eval('a:cmd'),
+            shell = True,
+            universal_newlines = True,
+            stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
+
+except:
+    pass
+EEOOFF
+endfunction
+" }}}
+" Tex_LiveLaTeX: live update of pdf file {{{
+function! Tex_LiveLaTeX()
+	silent exec 'write!'
+    call s:RunInBackground(
+                \ 'pdflatex -shell-escape -interaction=nonstopmode -output-directory=' .
+                \ expand("%:p:h") . ' ' . expand("%:t"))
+endfunction
+" "}}}
 " Tex_ViewLaTeX: opens viewer {{{
 " Description: opens the DVI viewer for the file being currently edited.
 " Again, if the current file is a \input in a master file, see text above
@@ -591,7 +616,7 @@ function! Tex_CompileMultipleTimes()
 		" The first time we see if we need to generate the bibliography and if the .bbl file
 		" changes, we will rerun latex.
 		" We use '\\bibdata' as a check for BibTeX and '\\abx' as a check for biber.
-		if runCount == 0 && Tex_IsPresentInFile('\\bibdata|\\abx', mainFileName_root.'.aux')
+		if runCount == 0 && Tex_IsPresentInFile('\v\\bibdata|\\abx', mainFileName_root.'.aux')
 			let bibFileName = mainFileName_root.'.bbl'
 
 			let biblinesBefore = Tex_CatFile(bibFileName)
@@ -898,4 +923,16 @@ command! -nargs=0 -range=% TPartCompile :<line1>, <line2> silent! call Tex_PartC
 command! -nargs=0 TCompileThis let b:fragmentFile = 1
 command! -nargs=0 TCompileMainFile let b:fragmentFile = 0
 
+autocmd CursorHold,CursorHoldI,BufWritePost,InsertLeave *.tex call Tex_LiveLaTeX()
+
+
+	python << EEOOFF
+try:
+    import vim
+    import tempfile
+    import subprocess
+    import os
+except:
+    vim.command('let l:ret = 1')
+EEOOFF
 " vim:fdm=marker:ff=unix:noet:ts=4:sw=4
